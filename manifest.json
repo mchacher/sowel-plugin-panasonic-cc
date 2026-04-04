@@ -1,15 +1,34 @@
 {
   "id": "panasonic_cc",
+  "type": "integration",
   "name": "Panasonic Comfort Cloud",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Panasonic AC units via Comfort Cloud API",
   "icon": "AirVent",
   "repo": "mchacher/sowel-plugin-panasonic-cc",
   "author": "mchacher",
   "sowelVersion": ">=0.10.0",
   "settings": [
-    { "key": "email", "label": "Panasonic ID (email)", "type": "text", "required": true, "placeholder": "user@example.com" },
-    { "key": "password", "label": "Password", "type": "password", "required": true },
-    { "key": "polling_interval", "label": "Polling interval (seconds)", "type": "number", "required": false, "defaultValue": "300", "placeholder": "Min 60, default 300" }
+    {
+      "key": "email",
+      "label": "Panasonic ID (email)",
+      "type": "text",
+      "required": true,
+      "placeholder": "user@example.com"
+    },
+    {
+      "key": "password",
+      "label": "Password",
+      "type": "password",
+      "required": true
+    },
+    {
+      "key": "polling_interval",
+      "label": "Polling interval (seconds)",
+      "type": "number",
+      "required": false,
+      "defaultValue": "300",
+      "placeholder": "Min 60, default 300"
+    }
   ]
 }
