@@ -128,7 +128,7 @@ class PanasonicBridge {
         execFileSync("python3", ["-m", "venv", venvDir], { timeout: 30_000 });
         const pip = resolve(venvDir, "bin", "pip");
         logger.info("Installing aio-panasonic-comfort-cloud");
-        execFileSync(pip, ["install", "aio-panasonic-comfort-cloud"], { timeout: 120_000 });
+        execFileSync(pip, ["install", "aio-panasonic-comfort-cloud==2025.1.2"], { timeout: 120_000 });
         logger.info("Python venv ready");
       } catch (err) {
         logger.error({ err } as Record<string, unknown>, "Failed to create Python venv");
