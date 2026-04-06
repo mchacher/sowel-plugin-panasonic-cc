@@ -5,7 +5,7 @@
  * Uses a Python bridge (pcomfortcloud) for API communication.
  */
 
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -113,14 +113,28 @@ class PanasonicBridge {
   private tokenFile: string;
   private logger: Logger;
 
-  constructor(tokenFile: string, bridgePath: string, logger: Logger) {
+  constructor(tokenFile: string, bridgePath: string, pluginDir: string, logger: Logger) {
     this.tokenFile = tokenFile;
     this.bridgePath = bridgePath;
     this.logger = logger;
 
-    // Prefer .venv python if available
-    const projectRoot = resolve(bridgePath, "..", "..", "..");
-    const venvPython = resolve(projectRoot, ".venv", "bin", "python3");
+    // Auto-create venv in plugin directory if needed
+    const venvDir = resolve(pluginDir, ".venv");
+    const venvPython = resolve(venvDir, "bin", "python3");
+
+    if (!existsSync(venvPython)) {
+      logger.info("Creating Python venv for Panasonic CC bridge");
+      try {
+        execFileSync("python3", ["-m", "venv", venvDir], { timeout: 30_000 });
+        const pip = resolve(venvDir, "bin", "pip");
+        logger.info("Installing aio-panasonic-comfort-cloud");
+        execFileSync(pip, ["install", "aio-panasonic-comfort-cloud"], { timeout: 120_000 });
+        logger.info("Python venv ready");
+      } catch (err) {
+        logger.error({ err } as Record<string, unknown>, "Failed to create Python venv");
+      }
+    }
+
     this.pythonPath = existsSync(venvPython) ? venvPython : "python3";
   }
 
@@ -225,7 +239,7 @@ class PanasonicCCPlugin implements IntegrationPlugin {
     const tokenFile = resolve(dataDir, "panasonic-tokens.json");
 
     try {
-      this.bridge = new PanasonicBridge(tokenFile, bridgePath, this.logger);
+      this.bridge = new PanasonicBridge(tokenFile, bridgePath, this.pluginDir, this.logger);
       await this.bridge.login(this.email, this.password);
       this.logger.info("Panasonic CC credentials verified");
 
