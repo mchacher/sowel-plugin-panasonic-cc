@@ -1,6 +1,6 @@
 {
   "name": "sowel-plugin-panasonic-cc",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Sowel plugin: Panasonic Comfort Cloud AC units",
   "type": "module",
   "main": "dist/index.js",

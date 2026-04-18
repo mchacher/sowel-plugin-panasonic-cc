@@ -370,9 +370,9 @@ class PanasonicCCPlugin implements IntegrationPlugin {
 function mapDeviceToDiscovered(device: BridgeDevice): { device: DiscoveredDevice; orderMetas: { key: string; meta: OrderMeta }[] } {
   const features = device.features;
   const data: DiscoveredDevice["data"] = [
-    { key: "power", type: "boolean", category: "generic" },
+    { key: "power", type: "boolean", category: "power" },
     { key: "operationMode", type: "enum", category: "generic" },
-    { key: "targetTemperature", type: "number", category: "temperature", unit: "°C" },
+    { key: "targetTemperature", type: "number", category: "setpoint", unit: "°C" },
     { key: "insideTemperature", type: "number", category: "temperature", unit: "°C" },
     { key: "outsideTemperature", type: "number", category: "temperature", unit: "°C" },
     { key: "fanSpeed", type: "enum", category: "generic" },
