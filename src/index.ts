@@ -374,7 +374,7 @@ function mapDeviceToDiscovered(device: BridgeDevice): { device: DiscoveredDevice
     { key: "operationMode", type: "enum", category: "generic" },
     { key: "targetTemperature", type: "number", category: "setpoint", unit: "°C" },
     { key: "insideTemperature", type: "number", category: "temperature", unit: "°C" },
-    { key: "outsideTemperature", type: "number", category: "temperature", unit: "°C" },
+    { key: "outsideTemperature", type: "number", category: "temperature_outdoor", unit: "°C" },
     { key: "fanSpeed", type: "enum", category: "generic" },
     { key: "airSwingUD", type: "enum", category: "generic" },
     { key: "airSwingLR", type: "enum", category: "generic" },
