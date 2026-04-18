@@ -33,7 +33,7 @@ interface SettingsManager { get(key: string): string | undefined; set(key: strin
 interface DiscoveredDevice {
   friendlyName: string; manufacturer?: string; model?: string;
   data: { key: string; type: string; category: string; unit?: string }[];
-  orders: { key: string; type: string; dispatchConfig?: Record<string, unknown>; min?: number; max?: number; enumValues?: string[]; unit?: string }[];
+  orders: { key: string; type: string; category?: string; dispatchConfig?: Record<string, unknown>; min?: number; max?: number; enumValues?: string[]; unit?: string }[];
 }
 
 interface DeviceManager {
@@ -383,9 +383,9 @@ function mapDeviceToDiscovered(device: BridgeDevice): { device: DiscoveredDevice
   if (features.nanoe) data.push({ key: "nanoe", type: "enum", category: "generic" });
 
   const orders: DiscoveredDevice["orders"] = [
-    { key: "power", type: "boolean" },
+    { key: "power", type: "boolean", category: "toggle_power" },
     { key: "operationMode", type: "enum", enumValues: getAvailableModes(features) },
-    { key: "targetTemperature", type: "number", min: 16, max: 30, unit: "°C" },
+    { key: "targetTemperature", type: "number", category: "set_setpoint", min: 16, max: 30, unit: "°C" },
     { key: "fanSpeed", type: "enum", enumValues: [...FAN_SPEED_VALUES] },
     { key: "airSwingUD", type: "enum", enumValues: [...AIR_SWING_UD_VALUES] },
   ];
