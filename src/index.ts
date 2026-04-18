@@ -33,7 +33,7 @@ interface SettingsManager { get(key: string): string | undefined; set(key: strin
 interface DiscoveredDevice {
   friendlyName: string; manufacturer?: string; model?: string;
   data: { key: string; type: string; category: string; unit?: string }[];
-  orders: { key: string; type: string; dispatchConfig: Record<string, unknown>; min?: number; max?: number; enumValues?: string[]; unit?: string }[];
+  orders: { key: string; type: string; dispatchConfig?: Record<string, unknown>; min?: number; max?: number; enumValues?: string[]; unit?: string }[];
 }
 
 interface DeviceManager {
@@ -49,11 +49,14 @@ interface IntegrationSettingDef { key: string; label: string; type: "text" | "pa
 
 interface IntegrationPlugin {
   readonly id: string; readonly name: string; readonly description: string; readonly icon: string;
+  readonly apiVersion?: number;
   getStatus(): IntegrationStatus; isConfigured(): boolean; getSettingsSchema(): IntegrationSettingDef[];
   start(options?: { pollOffset?: number }): Promise<void>; stop(): Promise<void>;
-  executeOrder(device: Device, dispatchConfig: Record<string, unknown>, value: unknown): Promise<void>;
+  executeOrder(device: Device, orderKeyOrDispatchConfig: string | Record<string, unknown>, value: unknown): Promise<void>;
   refresh?(): Promise<void>; getPollingInfo?(): { lastPollAt: string; intervalMs: number } | null;
 }
+
+interface OrderMeta { guid: string; param: string }
 
 // ============================================================
 // Bridge types
@@ -178,6 +181,7 @@ class PanasonicCCPlugin implements IntegrationPlugin {
   readonly name = "Panasonic Comfort Cloud";
   readonly description = "Panasonic AC units via Comfort Cloud API";
   readonly icon = "AirVent";
+  readonly apiVersion = 2;
 
   private logger: Logger;
   private eventBus: EventBus;
@@ -196,6 +200,7 @@ class PanasonicCCPlugin implements IntegrationPlugin {
   private password = "";
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private retryCount = 0;
+  private orderMetaMap = new Map<string, OrderMeta>();
 
   constructor(deps: PluginDeps) {
     this.logger = deps.logger;
@@ -271,14 +276,13 @@ class PanasonicCCPlugin implements IntegrationPlugin {
     this.logger.info("Panasonic CC stopped");
   }
 
-  async executeOrder(_device: Device, dispatchConfig: Record<string, unknown>, value: unknown): Promise<void> {
+  async executeOrder(device: Device, orderKey: string, value: unknown): Promise<void> {
     if (!this.bridge || this.status !== "connected") throw new Error("Panasonic CC not connected");
-    const param = dispatchConfig.param as string;
-    const guid = dispatchConfig.guid as string;
-    if (!param || !guid) throw new Error("Missing param or guid");
+    const meta = this.orderMetaMap.get(`${device.sourceDeviceId}:${orderKey}`);
+    if (!meta) throw new Error(`Order metadata not found for ${device.sourceDeviceId}:${orderKey}`);
 
-    await this.bridge.control(guid, param, value, this.email, this.password);
-    this.logger.info({ guid, param, value }, "Order executed");
+    await this.bridge.control(meta.guid, meta.param, value, this.email, this.password);
+    this.logger.info({ guid: meta.guid, param: meta.param, value }, "Order executed");
     this.scheduleOnDemandPoll();
   }
 
@@ -304,7 +308,11 @@ class PanasonicCCPlugin implements IntegrationPlugin {
       const response = await this.bridge.getDevices(this.email, this.password);
 
       for (const device of response.devices) {
-        this.deviceManager.upsertFromDiscovery(INTEGRATION_ID, INTEGRATION_ID, mapDeviceToDiscovered(device));
+        const { device: discovered, orderMetas } = mapDeviceToDiscovered(device);
+        this.deviceManager.upsertFromDiscovery(INTEGRATION_ID, INTEGRATION_ID, discovered);
+        for (const { key, meta } of orderMetas) {
+          this.orderMetaMap.set(`${discovered.friendlyName}:${key}`, meta);
+        }
 
         const sourceDeviceId = device.name || device.id;
         const p = device.parameters;
@@ -359,7 +367,7 @@ class PanasonicCCPlugin implements IntegrationPlugin {
 // Device mapping
 // ============================================================
 
-function mapDeviceToDiscovered(device: BridgeDevice): DiscoveredDevice {
+function mapDeviceToDiscovered(device: BridgeDevice): { device: DiscoveredDevice; orderMetas: { key: string; meta: OrderMeta }[] } {
   const features = device.features;
   const data: DiscoveredDevice["data"] = [
     { key: "power", type: "boolean", category: "generic" },
@@ -375,17 +383,35 @@ function mapDeviceToDiscovered(device: BridgeDevice): DiscoveredDevice {
   if (features.nanoe) data.push({ key: "nanoe", type: "enum", category: "generic" });
 
   const orders: DiscoveredDevice["orders"] = [
-    { key: "power", type: "boolean", dispatchConfig: { param: "power", guid: device.id } },
-    { key: "operationMode", type: "enum", dispatchConfig: { param: "mode", guid: device.id }, enumValues: getAvailableModes(features) },
-    { key: "targetTemperature", type: "number", dispatchConfig: { param: "targetTemperature", guid: device.id }, min: 16, max: 30, unit: "°C" },
-    { key: "fanSpeed", type: "enum", dispatchConfig: { param: "fanSpeed", guid: device.id }, enumValues: [...FAN_SPEED_VALUES] },
-    { key: "airSwingUD", type: "enum", dispatchConfig: { param: "airSwingUD", guid: device.id }, enumValues: [...AIR_SWING_UD_VALUES] },
+    { key: "power", type: "boolean" },
+    { key: "operationMode", type: "enum", enumValues: getAvailableModes(features) },
+    { key: "targetTemperature", type: "number", min: 16, max: 30, unit: "°C" },
+    { key: "fanSpeed", type: "enum", enumValues: [...FAN_SPEED_VALUES] },
+    { key: "airSwingUD", type: "enum", enumValues: [...AIR_SWING_UD_VALUES] },
   ];
-  if (features.airSwingLR) orders.push({ key: "airSwingLR", type: "enum", dispatchConfig: { param: "airSwingLR", guid: device.id }, enumValues: [...AIR_SWING_LR_VALUES] });
-  orders.push({ key: "ecoMode", type: "enum", dispatchConfig: { param: "ecoMode", guid: device.id }, enumValues: [...ECO_MODE_VALUES] });
-  if (features.nanoe) orders.push({ key: "nanoe", type: "enum", dispatchConfig: { param: "nanoe", guid: device.id }, enumValues: [...NANOE_VALUES] });
+  const orderMetas: { key: string; meta: OrderMeta }[] = [
+    { key: "power", meta: { guid: device.id, param: "power" } },
+    { key: "operationMode", meta: { guid: device.id, param: "mode" } },
+    { key: "targetTemperature", meta: { guid: device.id, param: "targetTemperature" } },
+    { key: "fanSpeed", meta: { guid: device.id, param: "fanSpeed" } },
+    { key: "airSwingUD", meta: { guid: device.id, param: "airSwingUD" } },
+  ];
+  if (features.airSwingLR) {
+    orders.push({ key: "airSwingLR", type: "enum", enumValues: [...AIR_SWING_LR_VALUES] });
+    orderMetas.push({ key: "airSwingLR", meta: { guid: device.id, param: "airSwingLR" } });
+  }
+  orders.push({ key: "ecoMode", type: "enum", enumValues: [...ECO_MODE_VALUES] });
+  orderMetas.push({ key: "ecoMode", meta: { guid: device.id, param: "ecoMode" } });
+  if (features.nanoe) {
+    orders.push({ key: "nanoe", type: "enum", enumValues: [...NANOE_VALUES] });
+    orderMetas.push({ key: "nanoe", meta: { guid: device.id, param: "nanoe" } });
+  }
 
-  return { friendlyName: device.name || device.id, manufacturer: "Panasonic", model: device.model || undefined, data, orders };
+  const friendlyName = device.name || device.id;
+  return {
+    device: { friendlyName, manufacturer: "Panasonic", model: device.model || undefined, data, orders },
+    orderMetas,
+  };
 }
 
 // ============================================================
