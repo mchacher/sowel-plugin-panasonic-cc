@@ -2,7 +2,7 @@
   "id": "panasonic_cc",
   "type": "integration",
   "name": "Panasonic Comfort Cloud",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Panasonic AC units via Comfort Cloud API",
   "icon": "AirVent",
   "repo": "mchacher/sowel-plugin-panasonic-cc",
