@@ -71,6 +71,18 @@ def enum_to_str(mapping, val):
         return str(val)
 
 
+def resolve_enum(map_rev, value):
+    """Resolve a string enum value to its numeric code.
+
+    Cannot use map_rev.get(value, int(value)) because Python evaluates
+    the default eagerly, so int("cool") would always raise ValueError
+    even when "cool" is a known key.
+    """
+    if value in map_rev:
+        return map_rev[value]
+    return int(value)
+
+
 # ============================================================
 # Session context manager
 # ============================================================
@@ -185,19 +197,19 @@ async def cmd_control(args):
             else:
                 kwargs["power"] = constants.Power.Off
         elif param == "mode":
-            kwargs["mode"] = constants.OperationMode(MODE_MAP_REV.get(value, int(value)))
+            kwargs["mode"] = constants.OperationMode(resolve_enum(MODE_MAP_REV, value))
         elif param == "targetTemperature":
             kwargs["temperature"] = float(value)
         elif param == "fanSpeed":
-            kwargs["fanSpeed"] = constants.FanSpeed(FAN_SPEED_MAP_REV.get(value, int(value)))
+            kwargs["fanSpeed"] = constants.FanSpeed(resolve_enum(FAN_SPEED_MAP_REV, value))
         elif param == "airSwingUD":
-            kwargs["airSwingVertical"] = constants.AirSwingUD(SWING_UD_MAP_REV.get(value, int(value)))
+            kwargs["airSwingVertical"] = constants.AirSwingUD(resolve_enum(SWING_UD_MAP_REV, value))
         elif param == "airSwingLR":
-            kwargs["airSwingHorizontal"] = constants.AirSwingLR(SWING_LR_MAP_REV.get(value, int(value)))
+            kwargs["airSwingHorizontal"] = constants.AirSwingLR(resolve_enum(SWING_LR_MAP_REV, value))
         elif param == "ecoMode":
-            kwargs["eco"] = constants.EcoMode(ECO_MODE_MAP_REV.get(value, int(value)))
+            kwargs["eco"] = constants.EcoMode(resolve_enum(ECO_MODE_MAP_REV, value))
         elif param == "nanoe":
-            kwargs["nanoe"] = constants.NanoeMode(NANOE_MAP_REV.get(value, int(value)))
+            kwargs["nanoe"] = constants.NanoeMode(resolve_enum(NANOE_MAP_REV, value))
         else:
             return {"ok": False, "error": f"Unknown parameter: {param}"}
 
