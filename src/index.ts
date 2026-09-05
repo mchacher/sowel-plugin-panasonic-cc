@@ -88,7 +88,14 @@ const INTEGRATION_ID = "panasonic_cc";
 const SETTINGS_PREFIX = `integration.${INTEGRATION_ID}.`;
 const BRIDGE_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 300_000;
-const ON_DEMAND_DELAY_MS = 10_000;
+/**
+ * Polls scheduled after an order. Comfort Cloud often still returns the
+ * pre-order state 10 s after a command, and with a single early poll the next
+ * chance to observe the effect was the regular interval (up to 5 min) — the
+ * UI toggle and the core's order-confirmation mirror stayed stale that long.
+ * The follow-up poll catches the state once the cloud has caught up.
+ */
+const ON_DEMAND_DELAYS_MS = [10_000, 45_000];
 
 const FAN_SPEED_VALUES = ["auto", "low", "lowMid", "mid", "highMid", "high"];
 const AIR_SWING_UD_VALUES = ["up", "down", "mid", "upMid", "downMid"];
@@ -346,8 +353,10 @@ class PanasonicCCPlugin implements IntegrationPlugin {
   private safePoll(): void { this.poll().catch((err) => this.logger.error({ err } as Record<string, unknown>, "Poll failed")); }
 
   private scheduleOnDemandPoll(): void {
-    const timer = setTimeout(() => { this.pendingTimers.delete(timer); this.safePoll(); }, ON_DEMAND_DELAY_MS);
-    this.pendingTimers.add(timer);
+    for (const delayMs of ON_DEMAND_DELAYS_MS) {
+      const timer = setTimeout(() => { this.pendingTimers.delete(timer); this.safePoll(); }, delayMs);
+      this.pendingTimers.add(timer);
+    }
   }
 
   private scheduleRetry(): void {
